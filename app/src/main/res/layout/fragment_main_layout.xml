@@ -52,6 +52,29 @@
                 android:background="@drawable/button_rounded"
                 android:text="@string/navigation"
                 android:textColor="#FFFFFF" />
+            <Button
+                android:id="@+id/btn_test_ping_restroom"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="測試：前往洗手間並 Ping 電腦" />
+            <Button
+                android:id="@+id/btn_nav_sequence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="序列測試(洗手間到會議室)"/>
+
+            <Button
+                android:id="@+id/btn_trigger_buzzer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="蜂鳴器觸發 (洗手間)" />
+            <Button
+                android:id="@+id/btn_modbus_test"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Modbus TCP 測試" />
+
 
             <Button
                 android:id="@+id/charge_scene"

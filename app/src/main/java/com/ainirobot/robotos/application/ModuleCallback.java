@@ -37,6 +37,7 @@ public class ModuleCallback extends ModuleCallbackApi {
      * @throws RemoteException
      */
     @Override
+    //語音指令
     public boolean onSendRequest(int reqId, String reqType, String reqText, String reqParam) throws RemoteException {
         Log.d(TAG, "New request: " + " type is:" + reqType + " text is:" + reqText + " reqParam = " + reqParam);
         String text = "New request: " + " type is:" + reqType + " text is:" + reqText + " reqParam = " + reqParam;
@@ -53,6 +54,7 @@ public class ModuleCallback extends ModuleCallbackApi {
      * @throws RemoteException
      */
     @Override
+    //硬體異常回報
     public void onHWReport(int function, String type, String message) throws RemoteException {
         Log.i(TAG, "onHWReport function:" + function + " type:" + type + " message:" + message);
         LogTools.info("onHWReport function:" + function + " type:" + type + " message:" + message);
@@ -64,6 +66,7 @@ public class ModuleCallback extends ModuleCallbackApi {
      * @throws RemoteException
      */
     @Override
+    //系統暫停
     public void onSuspend() throws RemoteException {
         Log.d(TAG, "onSuspend");
         LogTools.info("onSuspend");
@@ -75,6 +78,7 @@ public class ModuleCallback extends ModuleCallbackApi {
      * @throws RemoteException
      */
     @Override
+    //系統恢復
     public void onRecovery() throws RemoteException {
         Log.d(TAG, "onRecovery");
         LogTools.info("onRecovery");

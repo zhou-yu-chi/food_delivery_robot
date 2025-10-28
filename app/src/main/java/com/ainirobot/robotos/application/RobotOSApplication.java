@@ -13,7 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
+//在 App 一啟動時，就立刻進行「全域初始化」和「連線」的工作。
 package com.ainirobot.robotos.application;
 
 import android.app.Application;
@@ -61,6 +61,7 @@ public class RobotOSApplication extends Application {
     private void initRobotApi() {
         RobotApi.getInstance().connectServer(mContext, new ApiListener() {
             @Override
+            //連線失敗API被禁用
             public void handleApiDisabled() {
                 Log.i(TAG, "handleApiDisabled");
             }
@@ -73,6 +74,7 @@ public class RobotOSApplication extends Application {
              * 启动与RobotOS连接，这里可以做一些初始化的工作 例如连接语音,本地服务等
              */
             @Override
+            //連線成功
             public void handleApiConnected() {
                 Log.i(TAG, "handleApiConnected");
                 addApiCallBack();
@@ -84,6 +86,7 @@ public class RobotOSApplication extends Application {
              * 连接已断开
              */
             @Override
+            //連線中斷機器人關機
             public void handleApiDisconnected() {
                 Log.i(TAG, "handleApiDisconnected");
             }
