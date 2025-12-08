@@ -18,123 +18,46 @@
             android:orientation="vertical">
 
             <Button
-                android:id="@+id/sport_scene"
+                android:id="@+id/btn_standby_point"
                 android:layout_width="120dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_rounded"
-                android:text="@string/basic_sport"
-                android:textColor="#FFFFFF" />
-
-            <Button
-                android:id="@+id/vision_scene"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="@string/visual_ability"
-                android:textColor="#FFFFFF" />
-
-            <Button
-                android:id="@+id/location_scene"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="@string/map_location_text"
-                android:textColor="#FFFFFF" />
-
-            <Button
-                android:id="@+id/navigation_scene"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="@string/navigation"
+                android:text="前往待機點"
                 android:textColor="#FFFFFF" />
             <Button
-                android:id="@+id/btn_test_ping_restroom"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="測試：前往洗手間並 Ping 電腦" />
-            <Button
-                android:id="@+id/btn_nav_sequence"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="序列測試(洗手間到會議室)"/>
-
-            <Button
-                android:id="@+id/btn_trigger_buzzer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="蜂鳴器觸發 (洗手間)" />
-            <Button
-                android:id="@+id/btn_modbus_test"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Modbus TCP 測試" />
-
-
-            <Button
-                android:id="@+id/charge_scene"
+                android:id="@+id/btn_injection_point_1"
                 android:layout_width="120dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_rounded"
-                android:text="@string/charge_text"
+                android:text="前往1號注射點"
                 android:textColor="#FFFFFF" />
-
             <Button
-                android:id="@+id/lead_scene"
+                android:id="@+id/btn_injection_point_2"
                 android:layout_width="120dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_rounded"
-                android:text="@string/lead_text"
-                android:textColor="#FFFFFF"
-                android:visibility="gone" />
-
-
-            <Button
-                android:id="@+id/speech_scene"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="@string/speech_ability"
+                android:text="前往2號注射點"
                 android:textColor="#FFFFFF" />
-
-            <Button
-                android:id="@+id/audio_scene"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="@string/audio_ability"
-                android:textColor="#FFFFFF" />
-
             <Button
                 android:id="@+id/electric_door_control"
-                android:layout_width="wrap_content"
+                android:layout_width="120dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_rounded"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="@string/electric_door_control"
+                android:text="電子門控制"
+                android:textColor="#FFFFFF" />
+            <Button
+                android:id="@+id/btn_Charging_pile"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_rounded"
+                android:text="前往充電樁"
                 android:textColor="#FFFFFF" />
 
-            <Button
-                android:id="@+id/body_follow"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="@string/body_follow"
-                android:textColor="#FFFFFF" />
         </LinearLayout>
 
     </ScrollView>

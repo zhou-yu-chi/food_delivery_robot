@@ -7,15 +7,15 @@
     android:background="@drawable/gradient_background" >
 
     <ImageView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@mipmap/ic_launcher_round"
-        android:layout_marginBottom="16dp" />
+        android:layout_width="218dp"
+        android:layout_height="116dp"
+        android:layout_marginBottom="16dp"
+        android:src="@mipmap/logo" />
     <TextView
         android:id="@+id/text_splash"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="OrionStar Robot App Sample"
+        android:text="先構技研自動車系統"
         android:textSize="22sp"
         android:textColor="#ffffff"
         android:gravity="center" />

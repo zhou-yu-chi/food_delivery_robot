@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center_horizontal"
+    android:background="@drawable/gradient_background"
     android:orientation="vertical">
 
     <LinearLayout
@@ -11,16 +12,17 @@
 
         <Button
             android:id="@+id/open_first_door"
-            android:layout_width="wrap_content"
+            android:layout_width="100dp"
             android:layout_height="wrap_content"
-            android:text="@string/open_first_door" />
+            android:text="1號門開啟" />
+
 
         <Button
             android:id="@+id/close_first_door"
-            android:layout_width="wrap_content"
+            android:layout_width="100dp"
             android:layout_height="wrap_content"
             android:layout_marginLeft="5dp"
-            android:text="@string/close_first_door" />
+            android:text="1號門關閉" />
     </LinearLayout>
 
     <LinearLayout
@@ -29,16 +31,16 @@
 
         <Button
             android:id="@+id/open_second_door"
-            android:layout_width="wrap_content"
+            android:layout_width="100dp"
             android:layout_height="wrap_content"
-            android:text="@string/open_second_door" />
+            android:text="2號門開啟" />
 
         <Button
             android:id="@+id/close_second_door"
-            android:layout_width="wrap_content"
+            android:layout_width="100dp"
             android:layout_height="wrap_content"
             android:layout_marginLeft="5dp"
-            android:text="@string/close_second_door" />
+            android:text="2號門關閉" />
     </LinearLayout>
 
     <LinearLayout
@@ -47,16 +49,16 @@
 
         <Button
             android:id="@+id/open_all_door"
-            android:layout_width="wrap_content"
+            android:layout_width="100dp"
             android:layout_height="wrap_content"
-            android:text="@string/open_all_door" />
+            android:text="所有門開啟" />
 
         <Button
             android:id="@+id/close_all_door"
-            android:layout_width="wrap_content"
+            android:layout_width="100dp"
             android:layout_height="wrap_content"
             android:layout_marginLeft="5dp"
-            android:text="@string/close_all_door" />
+            android:text="所有門關閉" />
     </LinearLayout>
 
 </LinearLayout>

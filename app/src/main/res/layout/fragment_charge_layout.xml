@@ -9,7 +9,8 @@
         android:layout_height="wrap_content"
         android:text="@string/charge_desc"
         />
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center"
@@ -20,9 +21,9 @@
             style="@style/TextStyle"
             android:layout_width="80dp"
             android:layout_height="48dp"
-            android:textSize="8sp"
             android:background="@drawable/button_rounded"
-            android:text="@string/charge_auto_start" />
+            android:text="@string/charge_auto_start"
+            android:textSize="8sp" />
 
         <Button
             android:id="@+id/stop_auto_charge"
@@ -30,19 +31,19 @@
             android:layout_width="80dp"
             android:layout_height="48dp"
             android:layout_marginLeft="8dp"
-            android:textSize="8sp"
             android:background="@drawable/button_rounded"
-            android:text="@string/charge_auto_stop" />
+            android:text="@string/charge_auto_stop"
+            android:textSize="8sp" />
 
         <Button
             android:id="@+id/disable_auto_charge"
             style="@style/TextStyle"
-            android:layout_marginLeft="8dp"
             android:layout_width="80dp"
             android:layout_height="48dp"
-            android:textSize="8sp"
+            android:layout_marginLeft="8dp"
             android:background="@drawable/button_rounded"
-            android:text="@string/charge_disable" />
+            android:text="@string/charge_disable"
+            android:textSize="8sp" />
 
         <Button
             android:id="@+id/charge_leave"
@@ -50,8 +51,8 @@
             android:layout_width="80dp"
             android:layout_height="48dp"
             android:layout_marginLeft="8dp"
-            android:textSize="8sp"
             android:background="@drawable/button_rounded"
-            android:text="@string/charge_stop_leave" />
+            android:text="@string/charge_stop_leave"
+            android:textSize="8sp" />
     </LinearLayout>
 </LinearLayout>
