@@ -33,6 +33,12 @@ import com.ghgande.j2mod.modbus.procimg.SimpleRegister;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.text.TextUtils;
+import com.ainirobot.coreservice.bean.CanElectricDoorBean;
+import com.ainirobot.coreservice.client.listener.CommandListener;
+import com.ainirobot.robotos.maputils.GsonUtil;
+
+
 public class MainFragment extends BaseFragment {
 
     private static final String TAG = "MainFragment";
@@ -96,30 +102,44 @@ public class MainFragment extends BaseFragment {
         mBtnCharging = root.findViewById(R.id.btn_Charging_pile);
         mExit = root.findViewById(R.id.exit);
 
+        // 修改 1: 待機點
         mBtnStandby.setOnClickListener(v -> {
-            Log.i(TAG, "指令：前往待機點");
-            RobotApi.getInstance().startNavigation(0, "待機點", 1.5, 10 * 1000, mSimpleNavListener);
+            checkDoorsAndAction(() -> {
+                Log.i(TAG, "檢查通過，執行指令：前往待機點");
+                RobotApi.getInstance().startNavigation(0, "待機點", 1.5, 10 * 1000, mSimpleNavListener);
+            });
         });
 
+        // 修改 2: 1號注射點6
         mBtnPoint1.setOnClickListener(v -> {
-            Log.i(TAG, "指令：前往1號注射點");
-            RobotApi.getInstance().startNavigation(0, "風機" , 1.5, 10 * 1000, mBuzzer1NavListener);
+            checkDoorsAndAction(() -> {
+                Log.i(TAG, "檢查通過，執行指令：前往1號注射點");
+                RobotApi.getInstance().startNavigation(0, "風機" , 1.5, 600 * 1000, mBuzzer1NavListener);
+            });
         });
 
+        // 修改 3: 2號注射點
         mBtnPoint2.setOnClickListener(v -> {
-            Log.i(TAG, "指令：前往2號注射點");
-            RobotApi.getInstance().startNavigation(0, "洗手間", 1.5, 10 * 1000, mBuzzer2NavListener);
+            checkDoorsAndAction(() -> {
+                Log.i(TAG, "檢查通過，執行指令：前往2號注射點");
+                RobotApi.getInstance().startNavigation(0, "洗手間", 1.5, 600 * 1000, mBuzzer2NavListener);
+            });
         });
 
+        // 門控按鈕不需要檢查 (維持原樣)
         mBtnDoorControl.setOnClickListener(v -> switchFragment(ElectricDoorActionControlFragment.newInstance()));
 
+        // 修改 4: 自動回充 (強烈建議回充也要檢查門)
         mBtnCharging.setOnClickListener(v -> {
-            Log.i(TAG, "指令：開始自動回充");
-            int i = RobotApi.getInstance().goCharging(0);
+            checkDoorsAndAction(() -> {
+                Log.i(TAG, "檢查通過，執行指令：開始自動回充");
+                RobotApi.getInstance().goCharging(0);
+            });
         });
 
+        // 離開按鈕維持原樣
         mExit.setOnClickListener(v -> {
-            mHandler.removeCallbacksAndMessages(null); // 清除計時器
+            mHandler.removeCallbacksAndMessages(null);
             if (modbus1 != null) modbus1.stop();
             if (modbus2 != null) modbus2.stop();
             if (getActivity() != null) {
@@ -128,7 +148,82 @@ public class MainFragment extends BaseFragment {
             }
         });
     }
+    // ==========================================
+    // 新增功能：移動前檢查艙門狀態
+    // ==========================================
 
+    /**
+     * 檢查門是否全關：
+     * 1. 呼叫 API 取得狀態
+     * 2. 如果全關 -> 執行 navigationTask (移動)
+     * 3. 如果沒關 -> 跳出警告
+     */
+    private void checkDoorsAndAction(Runnable actionTask) {
+        // 呼叫 SDK 獲取艙門狀態
+        RobotApi.getInstance().getElectricDoorStatus(0, new CommandListener() {
+            @Override
+            public void onResult(int result, String message, String extraData) {
+                // Log.d(TAG, "檢查艙門結果: " + result + ", msg: " + message);
+
+                boolean isSafe = false;
+
+                if (result == 1 && !TextUtils.isEmpty(message)) {
+                    try {
+                        // 使用 Gson 解析回傳的 JSON
+                        CanElectricDoorBean doorBean = GsonUtil.fromJson(message, CanElectricDoorBean.class);
+
+                        // 檢查所有門是否都是「關閉 (CLOSE)」狀態
+                        if (doorBean != null && isAllDoorsClosed(doorBean)) {
+                            isSafe = true;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "解析艙門狀態失敗: " + e.getMessage());
+                    }
+                }
+
+                if (isSafe) {
+                    // 安全：門都關好了，執行傳入的動作 (例如導航)
+                    // 注意：API 回調可能在背景執行緒，操作 UI 或導航建議切回主執行緒
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(actionTask);
+                    }
+                } else {
+                    // 危險：門沒關，或者讀取失敗，顯示警告
+                    showDoorOpenWarningDialog();
+                }
+            }
+        });
+    }
+
+    /**
+     * 判斷 4 扇門是否都處於關閉狀態
+     */
+    private boolean isAllDoorsClosed(CanElectricDoorBean doorBean) {
+        // 根據 ElectricDoorControlFragment 的邏輯：
+        // Door 1 & 2 是上艙門
+        // Door 3 & 4 是下艙門
+        boolean door1Closed = (doorBean.getDoor1() == Definition.CAN_DOOR_STATUS_CLOSE);
+        boolean door2Closed = (doorBean.getDoor2() == Definition.CAN_DOOR_STATUS_CLOSE);
+        boolean door3Closed = (doorBean.getDoor3() == Definition.CAN_DOOR_STATUS_CLOSE);
+        boolean door4Closed = (doorBean.getDoor4() == Definition.CAN_DOOR_STATUS_CLOSE);
+
+        return door1Closed && door2Closed && door3Closed && door4Closed;
+    }
+
+    /**
+     * 顯示警告視窗 (必須在 UI Thread 執行)
+     */
+    private void showDoorOpenWarningDialog() {
+        if (getActivity() == null) return;
+        getActivity().runOnUiThread(() -> {
+            new AlertDialog.Builder(getContext())
+                    .setTitle("無法移動")
+                    .setMessage("檢測到艙門未完全關閉！\n\n請確認所有艙門皆已關閉後再試一次。")
+                    .setPositiveButton("好，我去關門", (dialog, which) -> dialog.dismiss())
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .show();
+        });
+    }
     // ==========================================
     // 重點功能：抵達確認視窗 (包含 30秒循環響鈴邏輯)
     // ==========================================
