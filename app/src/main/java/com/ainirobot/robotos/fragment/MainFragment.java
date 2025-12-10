@@ -61,6 +61,7 @@ public class MainFragment extends BaseFragment {
 
     // 用來處理 30秒循環 的計時器
     private Handler mHandler = new Handler(Looper.getMainLooper());
+    private Runnable mCurrentBeepTask = null;
 
     public static Fragment newInstance() {
         return new MainFragment();
@@ -288,39 +289,53 @@ public class MainFragment extends BaseFragment {
         if (getActivity() == null) return;
 
         getActivity().runOnUiThread(() -> {
-            // 1. 定義 30秒 循環任務
-            Runnable beepLoopTask = new Runnable() {
+
+            // ★★★ 步驟 1: 強制移除舊的任務 ★★★
+            // 不管之前有沒有在跑，先殺掉再說，保證永遠只有一個計時器在運作
+            if (mCurrentBeepTask != null) {
+                mHandler.removeCallbacks(mCurrentBeepTask);
+                mCurrentBeepTask = null;
+            }
+
+            // ★★★ 步驟 2: 定義新的任務，並存入全域變數 ★★★
+            mCurrentBeepTask = new Runnable() {
                 @Override
                 public void run() {
-                    Log.i(TAG, "循環計時到：觸發一次短連線響鈴 (" + targetIp + ")");
+                    Log.i(TAG, "循環計時觸發：短連線響鈴 -> " + targetIp);
 
-                    // 呼叫短連線方法 (這會開新執行緒去跑，不會卡住 UI)
+                    // 執行響鈴
                     executeOneShotBeep(targetIp);
 
-                    // 設定 30秒後再次執行這個 run()
+                    // 設定 30秒後再次執行「自己」
+                    // 注意：這裡要用 mCurrentBeepTask 確保是指向同一個任務
                     mHandler.postDelayed(this, 30 * 1000);
                 }
             };
 
-            // 2. 建立彈跳視窗
+            // 3. 建立彈跳視窗 (增加防重複顯示邏輯)
+            // 為了避免視窗也疊加，這裡可以加一個簡單的判斷，或者依賴使用者操作
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
             builder.setTitle("已抵達：" + pointName);
-            builder.setMessage("蜂鳴器已啟動。\n請領取物品，確認領取完畢後請點擊下方按鈕。");
+            builder.setMessage("蜂鳴器已啟動 (每30秒提醒)。\n請領取物品，確認領取完畢後請點擊下方按鈕。");
             builder.setCancelable(false); // 禁止點空白關閉
 
-            // 3. 設定按鈕動作
+            // 4. 設定按鈕動作
             builder.setPositiveButton("我已收到物品", (dialog, which) -> {
                 Log.i(TAG, "使用者確認收到，停止循環響鈴。");
-                // 移除計時器，就不會再響下一次了
-                mHandler.removeCallbacks(beepLoopTask);
+
+                // ★★★ 步驟 3: 按下按鈕時，徹底清除任務 ★★★
+                if (mCurrentBeepTask != null) {
+                    mHandler.removeCallbacks(mCurrentBeepTask);
+                    mCurrentBeepTask = null;
+                }
             });
 
-            // 4. 顯示視窗
+            // 5. 顯示視窗並啟動第一次響鈴
             AlertDialog dialog = builder.create();
             dialog.show();
 
-            // 5. 視窗跳出後，馬上執行第一次響鈴
-            mHandler.post(beepLoopTask);
+            // 馬上執行第一次
+            mHandler.post(mCurrentBeepTask);
         });
     }
 
