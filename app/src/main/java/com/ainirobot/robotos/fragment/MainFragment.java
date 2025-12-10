@@ -144,66 +144,74 @@ public class MainFragment extends BaseFragment {
      * 每次執行都是獨立的，不會佔用連線資源。
      */
     private void executeOneShotBeep(String targetIp) {
-        // 開啟一個新執行緒來執行網路動作，避免卡住畫面
         new Thread(() -> {
-            TCPMasterConnection conn = null;
+            // --- 第一階段：開啟蜂鳴器 ---
+            boolean openSuccess = sendModbusCommand(targetIp, true);
+
+            if (!openSuccess) {
+                Log.e(TAG, "[短連線] 開啟失敗，放棄後續動作");
+                return;
+            }
+
+            Log.i(TAG, "[短連線] 蜂鳴器已開啟，APP 等待 6 秒...");
+
+            // --- 中場休息：在本地等待，不佔用網路 ---
             try {
-                Log.i(TAG, "[短連線] 開始任務，目標 IP: " + targetIp);
-                InetAddress addr = InetAddress.getByName(targetIp);
+                Thread.sleep(6000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
-                // 1. 建立連線
-                conn = new TCPMasterConnection(addr);
-                conn.setPort(Modbus.DEFAULT_PORT); // 502
-                conn.setTimeout(3000); // 設定 3秒超時，連不上就放棄，不要卡住
-                conn.connect();
+            // --- 第二階段：關閉蜂鳴器 ---
+            // 即使中間網路斷過，這裡會重新建立連線，確保一定關得掉
+            Log.i(TAG, "[短連線] 時間到，準備發送關閉指令...");
+            sendModbusCommand(targetIp, false);
 
+        }).start();
+    }
 
-                Log.d(TAG, "[短連線] 連線成功，準備發送指令...");
+    /**
+     * 輔助方法：發送單次開關指令
+     * @param turnOn true=開, false=關
+     * @return 是否成功
+     */
+    private boolean sendModbusCommand(String ip, boolean turnOn) {
+        TCPMasterConnection conn = null;
+        try {
+            InetAddress addr = InetAddress.getByName(ip);
+            conn = new TCPMasterConnection(addr);
+            conn.setPort(Modbus.DEFAULT_PORT);
+            conn.setTimeout(3000); // 3秒超時
+            conn.connect();
 
-                // 2. 準備交易物件
-                ModbusTCPTransaction tx = new ModbusTCPTransaction(conn);
+            ModbusTCPTransaction tx = new ModbusTCPTransaction(conn);
+            int value = turnOn ? 1 : 0;
 
-                // 3. 步驟 A: 解鎖 (Armed = 1)
-                // 假設你的蜂鳴器 Address 0 是 Armed (依據你原本的程式碼)
+            // 1. 解鎖 (Armed = 1) - 只有開的時候需要，關的時候其實通常不需要，但多寫無妨
+            if (turnOn) {
                 WriteSingleRegisterRequest reqArm = new WriteSingleRegisterRequest(0, new SimpleRegister(1));
-                reqArm.setUnitID(1); // Slave ID
+                reqArm.setUnitID(1);
                 tx.setRequest(reqArm);
                 tx.execute();
-
-                // 4. 步驟 B: 開啟聲音 (Forced = 1)
-                WriteSingleRegisterRequest reqOn = new WriteSingleRegisterRequest(1, new SimpleRegister(1));
-                reqOn.setUnitID(1);
-                tx.setRequest(reqOn);
-                tx.execute();
-
-                Log.i(TAG, "[短連線] 蜂鳴器已開啟，響鈴 3 秒...");
-
-                // 5. 讓它響 3 秒 (Thread sleep)
-                try {
-                    Thread.sleep(6000); // 這裡控制響多久
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                // 6. 步驟 C: 關閉聲音 (Forced = 0)
-                WriteSingleRegisterRequest reqOff = new WriteSingleRegisterRequest(1, new SimpleRegister(0));
-                reqOff.setUnitID(1);
-                tx.setRequest(reqOff);
-                tx.execute();
-
-                Log.i(TAG, "[短連線] 蜂鳴器關閉指令已發送");
-
-            } catch (Exception e) {
-                // 如果連線失敗或寫入失敗，會跑到這裡
-                Log.e(TAG, "[短連線] 發生錯誤 (可能網路不通或IP錯誤): " + e.getMessage());
-            } finally {
-                // ★★★ 最重要的一步：無論成功失敗，絕對要關閉連線 ★★★
-                if (conn != null && conn.isConnected()) {
-                    conn.close();
-                    Log.d(TAG, "[短連線] 連線已徹底斷開 (資源釋放)");
-                }
             }
-        }).start();
+
+            // 2. 切換開關 (Forced = 1 或 0)
+            WriteSingleRegisterRequest reqSwitch = new WriteSingleRegisterRequest(1, new SimpleRegister(value));
+            reqSwitch.setUnitID(1);
+            tx.setRequest(reqSwitch);
+            tx.execute();
+
+            Log.d(TAG, "[短連線] 指令發送成功: " + (turnOn ? "ON" : "OFF"));
+            return true;
+
+        } catch (Exception e) {
+            Log.e(TAG, "[短連線] 連線或發送失敗: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null && conn.isConnected()) {
+                conn.close();
+            }
+        }
     }
     // ==========================================
     // 新增功能：移動前檢查艙門狀態
@@ -290,7 +298,7 @@ public class MainFragment extends BaseFragment {
 
         getActivity().runOnUiThread(() -> {
 
-            // ★★★ 步驟 1: 強制移除舊的任務 ★★★
+
             // 不管之前有沒有在跑，先殺掉再說，保證永遠只有一個計時器在運作
             if (mCurrentBeepTask != null) {
                 mHandler.removeCallbacks(mCurrentBeepTask);
