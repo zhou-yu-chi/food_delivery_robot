@@ -57,8 +57,7 @@ public class MainFragment extends BaseFragment {
     private Button mExit;
 
     // Modbus 工人
-    private PersistentModbus modbus1;
-    private PersistentModbus modbus2;
+
 
     // 用來處理 30秒循環 的計時器
     private Handler mHandler = new Handler(Looper.getMainLooper());
@@ -76,23 +75,6 @@ public class MainFragment extends BaseFragment {
         return root;
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (modbus1 == null) modbus1 = new PersistentModbus(BUZZER_IP_1);
-        modbus1.start();
-        if (modbus2 == null) modbus2 = new PersistentModbus(BUZZER_IP_2);
-        modbus2.start();
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        // 離開畫面時，務必停止任何正在跑的計時器，以免背景一直響
-        mHandler.removeCallbacksAndMessages(null);
-        if (modbus1 != null) modbus1.stop();
-        if (modbus2 != null) modbus2.stop();
-    }
 
     private void bindViews(View root) {
         mBtnStandby = root.findViewById(R.id.btn_standby_point);
@@ -106,7 +88,7 @@ public class MainFragment extends BaseFragment {
         mBtnStandby.setOnClickListener(v -> {
             checkDoorsAndAction(() -> {
                 Log.i(TAG, "檢查通過，執行指令：前往待機點");
-                RobotApi.getInstance().startNavigation(0, "待機點", 1.5, 10 * 1000, mSimpleNavListener);
+                RobotApi.getInstance().startNavigation(0, "待機點", 1.5, 600 * 1000, mSimpleNavListener);
             });
         });
 
@@ -114,7 +96,7 @@ public class MainFragment extends BaseFragment {
         mBtnPoint1.setOnClickListener(v -> {
             checkDoorsAndAction(() -> {
                 Log.i(TAG, "檢查通過，執行指令：前往1號注射點");
-                RobotApi.getInstance().startNavigation(0, "風機" , 1.5, 600 * 1000, mBuzzer1NavListener);
+                RobotApi.getInstance().startNavigation(0, "風機", 1.5, 600 * 1000, mBuzzer1NavListener);
             });
         });
 
@@ -134,19 +116,93 @@ public class MainFragment extends BaseFragment {
             checkDoorsAndAction(() -> {
                 Log.i(TAG, "檢查通過，執行指令：開始自動回充");
                 RobotApi.getInstance().goCharging(0);
+                if (getActivity() != null) {
+                    // 為了讓使用者看到「開始自動回充」的提示，可以延遲 1 秒再關閉
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        if (getActivity() != null) {
+                            getActivity().finish();
+                        }
+                    }, 0);
+                }
             });
         });
+
 
         // 離開按鈕維持原樣
         mExit.setOnClickListener(v -> {
             mHandler.removeCallbacksAndMessages(null);
-            if (modbus1 != null) modbus1.stop();
-            if (modbus2 != null) modbus2.stop();
             if (getActivity() != null) {
                 getActivity().onBackPressed();
                 getActivity().finish();
             }
         });
+    }
+
+    /**
+     * 短連線模式核心：建立連線 -> 開啟蜂鳴器 -> 等待 -> 關閉蜂鳴器 -> 斷線
+     * 每次執行都是獨立的，不會佔用連線資源。
+     */
+    private void executeOneShotBeep(String targetIp) {
+        // 開啟一個新執行緒來執行網路動作，避免卡住畫面
+        new Thread(() -> {
+            TCPMasterConnection conn = null;
+            try {
+                Log.i(TAG, "[短連線] 開始任務，目標 IP: " + targetIp);
+                InetAddress addr = InetAddress.getByName(targetIp);
+
+                // 1. 建立連線
+                conn = new TCPMasterConnection(addr);
+                conn.setPort(Modbus.DEFAULT_PORT); // 502
+                conn.setTimeout(3000); // 設定 3秒超時，連不上就放棄，不要卡住
+                conn.connect();
+
+
+                Log.d(TAG, "[短連線] 連線成功，準備發送指令...");
+
+                // 2. 準備交易物件
+                ModbusTCPTransaction tx = new ModbusTCPTransaction(conn);
+
+                // 3. 步驟 A: 解鎖 (Armed = 1)
+                // 假設你的蜂鳴器 Address 0 是 Armed (依據你原本的程式碼)
+                WriteSingleRegisterRequest reqArm = new WriteSingleRegisterRequest(0, new SimpleRegister(1));
+                reqArm.setUnitID(1); // Slave ID
+                tx.setRequest(reqArm);
+                tx.execute();
+
+                // 4. 步驟 B: 開啟聲音 (Forced = 1)
+                WriteSingleRegisterRequest reqOn = new WriteSingleRegisterRequest(1, new SimpleRegister(1));
+                reqOn.setUnitID(1);
+                tx.setRequest(reqOn);
+                tx.execute();
+
+                Log.i(TAG, "[短連線] 蜂鳴器已開啟，響鈴 3 秒...");
+
+                // 5. 讓它響 3 秒 (Thread sleep)
+                try {
+                    Thread.sleep(6000); // 這裡控制響多久
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                // 6. 步驟 C: 關閉聲音 (Forced = 0)
+                WriteSingleRegisterRequest reqOff = new WriteSingleRegisterRequest(1, new SimpleRegister(0));
+                reqOff.setUnitID(1);
+                tx.setRequest(reqOff);
+                tx.execute();
+
+                Log.i(TAG, "[短連線] 蜂鳴器關閉指令已發送");
+
+            } catch (Exception e) {
+                // 如果連線失敗或寫入失敗，會跑到這裡
+                Log.e(TAG, "[短連線] 發生錯誤 (可能網路不通或IP錯誤): " + e.getMessage());
+            } finally {
+                // ★★★ 最重要的一步：無論成功失敗，絕對要關閉連線 ★★★
+                if (conn != null && conn.isConnected()) {
+                    conn.close();
+                    Log.d(TAG, "[短連線] 連線已徹底斷開 (資源釋放)");
+                }
+            }
+        }).start();
     }
     // ==========================================
     // 新增功能：移動前檢查艙門狀態
@@ -224,23 +280,24 @@ public class MainFragment extends BaseFragment {
                     .show();
         });
     }
+
     // ==========================================
-    // 重點功能：抵達確認視窗 (包含 30秒循環響鈴邏輯)
+    // 抵達確認視窗 (修改版：支援短連線與循環響鈴)
     // ==========================================
-    private void showArrivedConfirmDialog(String pointName, PersistentModbus targetModbus) {
-        // 確保在主執行緒執行 UI 更新
+    private void showArrivedConfirmDialog(String pointName, String targetIp) {
         if (getActivity() == null) return;
 
         getActivity().runOnUiThread(() -> {
-            // 1. 定義一個「定期任務」：響鈴 -> 等30秒 -> 再響鈴
+            // 1. 定義 30秒 循環任務
             Runnable beepLoopTask = new Runnable() {
                 @Override
                 public void run() {
-                    Log.i(TAG, "使用者尚未確認，觸發蜂鳴器響 3 秒提醒...");
-                    if (targetModbus != null) {
-                        targetModbus.beep3s();
-                    }
-                    // 設定 30秒 (30000ms) 後再執行一次這個 run()
+                    Log.i(TAG, "循環計時到：觸發一次短連線響鈴 (" + targetIp + ")");
+
+                    // 呼叫短連線方法 (這會開新執行緒去跑，不會卡住 UI)
+                    executeOneShotBeep(targetIp);
+
+                    // 設定 30秒後再次執行這個 run()
                     mHandler.postDelayed(this, 30 * 1000);
                 }
             };
@@ -249,20 +306,20 @@ public class MainFragment extends BaseFragment {
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
             builder.setTitle("已抵達：" + pointName);
             builder.setMessage("蜂鳴器已啟動。\n請領取物品，確認領取完畢後請點擊下方按鈕。");
-            builder.setCancelable(false); // 禁止點擊空白處關閉，強迫按按鈕
+            builder.setCancelable(false); // 禁止點空白關閉
 
             // 3. 設定按鈕動作
             builder.setPositiveButton("我已收到物品", (dialog, which) -> {
-                Log.i(TAG, "使用者已確認收到物品，停止計時器。");
-                // 關鍵：移除計時器，這樣就不會再響了
+                Log.i(TAG, "使用者確認收到，停止循環響鈴。");
+                // 移除計時器，就不會再響下一次了
                 mHandler.removeCallbacks(beepLoopTask);
             });
 
-            // 4. 顯示視窗並「立即」開始第一次響鈴
+            // 4. 顯示視窗
             AlertDialog dialog = builder.create();
             dialog.show();
 
-            // 馬上執行第一次響鈴
+            // 5. 視窗跳出後，馬上執行第一次響鈴
             mHandler.post(beepLoopTask);
         });
     }
@@ -285,27 +342,26 @@ public class MainFragment extends BaseFragment {
     };
 
     // 1號點監聽器
+    // 1號點監聽器
     private final ActionListener mBuzzer1NavListener = new ActionListener() {
         @Override
         public void onResult(int status, String response) throws RemoteException {
-            // 成功抵達的 Log
-            Log.i(TAG, "導航回傳 Result: " + status + ", Response: " + response);
+            Log.i(TAG, "1號點導航結束 Result: " + status);
 
-            if (status == Definition.RESULT_OK && "true".equals(response)) {
-                showArrivedConfirmDialog("1號注射點", modbus1);
+            // 只要 Status 是 OK 就執行 (拿掉 response 文字檢查)
+            if (status == Definition.RESULT_OK) {
+                // 改成傳入 IP 字串
+                showArrivedConfirmDialog("1號注射點", BUZZER_IP_1);
             }
         }
 
         @Override
         public void onError(int errorCode, String errorString) throws RemoteException {
-            // ▼▼▼ 補上這行，才會知道為什麼不動！ ▼▼▼
-            Log.e(TAG, "導航發生錯誤 (Code " + errorCode + "): " + errorString);
+            Log.e(TAG, "1號點導航錯誤: " + errorString);
         }
 
         @Override
         public void onStatusUpdate(int status, String data) {
-            // 也可以補上這個，觀察導航進度
-            Log.d(TAG, "導航狀態更新: " + status);
         }
     };
 
@@ -313,14 +369,17 @@ public class MainFragment extends BaseFragment {
     private final ActionListener mBuzzer2NavListener = new ActionListener() {
         @Override
         public void onResult(int status, String response) throws RemoteException {
-            if (status == Definition.RESULT_OK && "true".equals(response)) {
-                // 抵達後，呼叫彈窗方法，傳入 2號 Modbus
-                showArrivedConfirmDialog("2號注射點", modbus2);
+            Log.i(TAG, "2號點導航結束 Result: " + status);
+
+            if (status == Definition.RESULT_OK) {
+                // 改成傳入 IP 字串
+                showArrivedConfirmDialog("2號注射點", BUZZER_IP_2);
             }
         }
 
         @Override
         public void onError(int errorCode, String errorString) throws RemoteException {
+            Log.e(TAG, "2號點導航錯誤: " + errorString);
         }
 
         @Override
@@ -343,190 +402,4 @@ public class MainFragment extends BaseFragment {
         public void onStatusUpdate(int status, String data) {
         }
     };
-
-
-    // ===== Modbus 核心類別 (強化穩定版) =====
-    private final class PersistentModbus {
-        private final String ip;
-        private final ExecutorService exec = Executors.newSingleThreadExecutor();
-        private final Object lock = new Object();
-        private TCPMasterConnection conn = null;
-        private volatile boolean running = false;
-
-        // Modbus 地址常數
-        private static final int REG_ARMED = 0;
-        private static final int REG_FORCED = 1;
-
-        PersistentModbus(String ip) {
-            this.ip = ip;
-        }
-
-        void start() {
-            synchronized (lock) {
-                if (running) return;
-                running = true;
-            }
-            Log.d(TAG, "[診斷] 啟動 Modbus Worker: " + ip);
-            // 啟動時執行一次連線測試
-            exec.execute(() -> {
-                checkNetworkReachability(); // 先檢查 Ping
-                ensureConnected();          // 再嘗試 TCP 連線
-            });
-        }
-
-        void stop() {
-            Log.d(TAG, "[診斷] 停止 Modbus Worker: " + ip);
-            enqueue(() -> safeWrite(REG_FORCED, 0)); // 嘗試關閉蜂鳴器
-            enqueue(this::closeQuietly);
-
-            synchronized (lock) {
-                running = false;
-            }
-            exec.shutdown();
-        }
-
-        // 外部呼叫的響鈴方法
-        void beep3s() {
-            enqueue(() -> {
-                Log.w(TAG, ">>> [診斷] 開始執行響鈴任務 (" + ip + ") <<<");
-
-                // 步驟 0: 檢查網路是否活著
-                if (!checkNetworkReachability()) {
-                    Log.e(TAG, "[致命錯誤] Ping 失敗！設備可能斷電或 IP 錯誤: " + ip);
-                    return; // 網路不通，直接放棄，不要浪費時間連線
-                }
-
-                // 步驟 1: 解除鎖定 (Armed)
-                if (safeWrite(REG_ARMED, 1)) {
-                    sleepMs(200);
-
-                    // 步驟 2: 強制輸出 (開啟蜂鳴器)
-                    if (safeWrite(REG_FORCED, 1)) {
-                        Log.i(TAG, "[成功] 蜂鳴器應該正在響...");
-                        sleepMs(6000); // 響鈴時間
-
-                        // 步驟 3: 關閉輸出
-                        safeWrite(REG_FORCED, 0);
-                        Log.i(TAG, "[結束] 蜂鳴器關閉指令已發送");
-                    } else {
-                        Log.e(TAG, "[失敗] 無法寫入開啟指令 (REG_FORCED)");
-                    }
-                } else {
-                    Log.e(TAG, "[失敗] 無法寫入準備指令 (REG_ARMED)");
-                }
-                Log.w(TAG, "<<< [診斷] 響鈴任務結束 (" + ip + ") <<<");
-            });
-        }
-
-        // 加入排程
-        private void enqueue(Runnable r) {
-            if (!exec.isShutdown()) {
-                exec.execute(() -> {
-                    try {
-                        r.run();
-                    } catch (Exception e) {
-                        Log.e(TAG, "[排程異常] " + e.getMessage());
-                    }
-                });
-            }
-        }
-
-        private void sleepMs(long ms) {
-            try {
-                Thread.sleep(ms);
-            } catch (InterruptedException ignored) {
-            }
-        }
-
-        // ★ 新增：網路物理層檢測 (Ping) ★
-        private boolean checkNetworkReachability() {
-            try {
-                InetAddress addr = InetAddress.getByName(ip);
-                // 嘗試在 2000ms 內 Ping 對方
-                boolean reachable = addr.isReachable(2000);
-                if (reachable) {
-                    Log.d(TAG, "[網路檢測] Ping 成功: " + ip + " 是可達的");
-                    return true;
-                } else {
-                    Log.e(TAG, "[網路檢測] Ping 失敗: " + ip + " 沒有回應 (Timeout)");
-                    return false;
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "[網路檢測] Ping 發生錯誤: " + e.getMessage());
-                return false;
-            }
-        }
-
-        // 建立 TCP 連線
-        private void ensureConnected() {
-            synchronized (lock) {
-                if (conn != null && conn.isConnected()) return; // 已經連線就跳過
-
-                Log.d(TAG, "[連線] 嘗試建立 Modbus TCP 連線 -> " + ip);
-                try {
-                    InetAddress addr = InetAddress.getByName(ip);
-                    conn = new TCPMasterConnection(addr);
-                    conn.setPort(Modbus.DEFAULT_PORT); // 預設 502
-                    conn.setTimeout(3000); // 3秒超時
-                    conn.connect();
-                    Log.i(TAG, "[連線] ★ TCP 連線成功建立 ★ (" + ip + ")");
-                } catch (Exception e) {
-                    Log.e(TAG, "[連線] 失敗! 無法連線到設備: " + e.getMessage());
-                    closeQuietly();
-                    // 這裡不 retry，交給下一次任務去處理，避免死迴圈
-                }
-            }
-        }
-
-        // 寫入暫存器 (回傳 boolean 代表成功或失敗)
-        private boolean safeWrite(int address, int value) {
-            synchronized (lock) {
-                // 1. 檢查連線
-                if (conn == null || !conn.isConnected()) {
-                    Log.w(TAG, "[寫入] 發現未連線，嘗試重連...");
-                    ensureConnected();
-                    if (conn == null || !conn.isConnected()) {
-                        Log.e(TAG, "[寫入] 重連失敗，放棄寫入 Address: " + address);
-                        return false;
-                    }
-                }
-
-                // 2. 執行寫入
-                try {
-                    Log.d(TAG, "[寫入] 發送: Address=" + address + ", Value=" + value);
-
-                    WriteSingleRegisterRequest req = new WriteSingleRegisterRequest(address, new SimpleRegister(value));
-                    req.setUnitID(SLAVE_ID);
-
-                    ModbusTCPTransaction tx = new ModbusTCPTransaction(conn);
-                    tx.setRequest(req);
-                    tx.execute(); // 執行交易
-
-                    Log.d(TAG, "[寫入] 交易成功！");
-                    sleepMs(50); // 緩衝
-                    return true;
-
-                } catch (Exception e) {
-                    Log.e(TAG, "[寫入] 交易發生例外: " + e.getMessage());
-                    // 如果出現 Broken pipe 或 Connection reset，代表 Socket 壞了
-                    closeQuietly();
-                    return false;
-                }
-            }
-        }
-
-        private void closeQuietly() {
-            synchronized (lock) {
-                try {
-                    if (conn != null) {
-                        Log.d(TAG, "[資源] 關閉 Socket 連線");
-                        conn.close();
-                    }
-                } catch (Exception ignored) {
-                } finally {
-                    conn = null;
-                }
-            }
-        }
-    }
 }
