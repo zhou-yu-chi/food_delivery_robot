@@ -1,7 +1,3 @@
-/*
- * Copyright (C) 2017 OrionStar Technology Project
- */
-
 package com.ainirobot.robotos.fragment;
 
 // Android 核心 & UI
@@ -107,12 +103,12 @@ public class MainFragment extends BaseFragment {
 
         mBtnPoint1.setOnClickListener(v -> {
             Log.i(TAG, "指令：前往1號注射點");
-            RobotApi.getInstance().startNavigation(0, "待機點", 1.5, 10 * 1000, mBuzzer1NavListener);
+            RobotApi.getInstance().startNavigation(0, "風機" , 1.5, 10 * 1000, mBuzzer1NavListener);
         });
 
         mBtnPoint2.setOnClickListener(v -> {
             Log.i(TAG, "指令：前往2號注射點");
-            RobotApi.getInstance().startNavigation(0, "充電樁", 1.5, 10 * 1000, mBuzzer2NavListener);
+            RobotApi.getInstance().startNavigation(0, "洗手間", 1.5, 10 * 1000, mBuzzer2NavListener);
         });
 
         mBtnDoorControl.setOnClickListener(v -> switchFragment(ElectricDoorActionControlFragment.newInstance()));
