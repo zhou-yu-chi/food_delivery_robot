@@ -16,6 +16,22 @@
             android:layout_gravity="center_horizontal"
             android:gravity="center"
             android:orientation="vertical">
+            <Button
+                android:id="@+id/btn_multi_delivery"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_rounded"
+                android:text="前往指定地點"
+                android:textColor="#FFFFFF" />
+            <Button
+                android:id="@+id/btn_Charging_pile"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_rounded"
+                android:text="前往充電樁"
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/btn_standby_point"
@@ -26,22 +42,6 @@
                 android:text="前往待機點"
                 android:textColor="#FFFFFF" />
             <Button
-                android:id="@+id/btn_injection_point_1"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="前往1號注射點"
-                android:textColor="#FFFFFF" />
-            <Button
-                android:id="@+id/btn_injection_point_2"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_rounded"
-                android:text="前往2號注射點"
-                android:textColor="#FFFFFF" />
-            <Button
                 android:id="@+id/electric_door_control"
                 android:layout_width="120dp"
                 android:layout_height="wrap_content"
@@ -49,14 +49,29 @@
                 android:background="@drawable/button_rounded"
                 android:text="電子門控制"
                 android:textColor="#FFFFFF" />
+
+
             <Button
-                android:id="@+id/btn_Charging_pile"
+                android:id="@+id/btn_password_setting"
                 android:layout_width="120dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_rounded"
-                android:text="前往充電樁"
+                android:text="密碼設定"
                 android:textColor="#FFFFFF" />
+            <Button
+                android:id="@+id/btn_injection_point_1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="0dp"
+                android:background="@drawable/button_rounded"
+                />
+            <Button
+                android:id="@+id/btn_injection_point_2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="0dp"
+                android:background="@drawable/button_rounded" />
 
         </LinearLayout>
 

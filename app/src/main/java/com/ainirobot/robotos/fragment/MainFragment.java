@@ -10,7 +10,10 @@ import android.os.RemoteException;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.Toast;        // 您有用 Toast 但原本好像漏了
+import android.text.InputType;
 import androidx.fragment.app.Fragment;
 
 // OrionStar Robot SDK
@@ -55,9 +58,9 @@ public class MainFragment extends BaseFragment {
     private Button mBtnDoorControl;
     private Button mBtnCharging;
     private Button mExit;
-
+    private Button mBtnMultiDelivery;
     // Modbus 工人
-
+    private Button mBtnPasswordSetting;
 
     // 用來處理 30秒循環 的計時器
     private Handler mHandler = new Handler(Looper.getMainLooper());
@@ -66,6 +69,7 @@ public class MainFragment extends BaseFragment {
     public static Fragment newInstance() {
         return new MainFragment();
     }
+
 
     @Override
     public View onCreateView(Context context) {
@@ -84,6 +88,9 @@ public class MainFragment extends BaseFragment {
         mBtnDoorControl = root.findViewById(R.id.electric_door_control);
         mBtnCharging = root.findViewById(R.id.btn_Charging_pile);
         mExit = root.findViewById(R.id.exit);
+        mBtnMultiDelivery = root.findViewById(R.id.btn_multi_delivery);
+        mBtnPasswordSetting = root.findViewById(R.id.btn_password_setting);
+
 
         // 修改 1: 待機點
         mBtnStandby.setOnClickListener(v -> {
@@ -108,10 +115,13 @@ public class MainFragment extends BaseFragment {
                 RobotApi.getInstance().startNavigation(0, "洗手間", 1.5, 600 * 1000, mBuzzer2NavListener);
             });
         });
-
+        mBtnPasswordSetting.setOnClickListener(v -> showChangePasswordDialog());
         // 門控按鈕不需要檢查 (維持原樣)
         mBtnDoorControl.setOnClickListener(v -> switchFragment(ElectricDoorActionControlFragment.newInstance()));
-
+        mBtnMultiDelivery.setOnClickListener(v -> {
+            Log.d(TAG, "點擊前往指定地點 (多點配送模式)");
+            switchFragment(MultiDeliveryFragment.newInstance());
+        });
         // 修改 4: 自動回充 (強烈建議回充也要檢查門)
         mBtnCharging.setOnClickListener(v -> {
             checkDoorsAndAction(() -> {
@@ -143,6 +153,50 @@ public class MainFragment extends BaseFragment {
      * 短連線模式核心：建立連線 -> 開啟蜂鳴器 -> 等待 -> 關閉蜂鳴器 -> 斷線
      * 每次執行都是獨立的，不會佔用連線資源。
      */
+    private void showChangePasswordDialog() {
+        if (getActivity() == null) return;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("修改系統密碼");
+
+        // 動態建立兩個輸入框
+        LinearLayout layout = new LinearLayout(getContext());
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(50, 20, 50, 20);
+
+        final EditText inputOld = new EditText(getContext());
+        inputOld.setHint("請輸入舊密碼");
+        inputOld.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        layout.addView(inputOld);
+
+        final EditText inputNew = new EditText(getContext());
+        inputNew.setHint("請輸入新密碼");
+        inputNew.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        layout.addView(inputNew);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("確認修改", (dialog, which) -> {
+            String oldPass = inputOld.getText().toString();
+            String newPass = inputNew.getText().toString();
+
+            if (TextUtils.isEmpty(oldPass) || TextUtils.isEmpty(newPass)) {
+                Toast.makeText(getContext(), "密碼不能為空", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 使用剛剛建立的 Manager 進行修改
+            boolean success = PasswordManager.changePassword(getContext(), oldPass, newPass);
+            if (success) {
+                Toast.makeText(getContext(), "密碼修改成功！", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), "舊密碼錯誤，修改失敗", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("取消", null);
+        builder.show();
+    }
     private void executeOneShotBeep(String targetIp) {
         new Thread(() -> {
             // --- 第一階段：開啟蜂鳴器 ---
