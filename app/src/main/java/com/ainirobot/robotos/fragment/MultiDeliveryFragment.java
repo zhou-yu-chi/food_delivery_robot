@@ -114,6 +114,83 @@ public class MultiDeliveryFragment extends BaseFragment {
             attemptAutoCloseAndStart();
         });
     }
+    // ==========================================
+    // 新增：門禁安全檢查 (無限重試模式)
+    // ==========================================
+
+    private void startDoorCheckLoop(int closeCmd, int stopIndex) {
+        // 先給門 5 秒鐘的時間運作，5秒後再來檢查
+        mHandler.postDelayed(() -> {
+
+            // 呼叫 API 檢查狀態
+            RobotApi.getInstance().getElectricDoorStatus(0, new CommandListener() {
+                @Override
+                public void onResult(int result, String message, String extraData) {
+                    boolean isClosed = false;
+                    if (result == 1 && !TextUtils.isEmpty(message)) {
+                        try {
+                            CanElectricDoorBean doorBean = GsonUtil.fromJson(message, CanElectricDoorBean.class);
+                            // 檢查是否所有門都已關閉
+                            if (doorBean != null &&
+                                    doorBean.getDoor1() == Definition.CAN_DOOR_STATUS_CLOSE &&
+                                    doorBean.getDoor2() == Definition.CAN_DOOR_STATUS_CLOSE &&
+                                    doorBean.getDoor3() == Definition.CAN_DOOR_STATUS_CLOSE &&
+                                    doorBean.getDoor4() == Definition.CAN_DOOR_STATUS_CLOSE) {
+                                isClosed = true;
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
+                    }
+
+                    if (isClosed) {
+                        // --- 情況 A: 門真的關好了 ---
+                        Log.i(TAG, "安全檢查通過，準備出發");
+                        if (getActivity() != null) {
+                            getActivity().runOnUiThread(() -> {
+                                Toast.makeText(getContext(), "艙門已確認關閉，出發！", Toast.LENGTH_SHORT).show();
+                                // 執行原本的前往下一站邏輯
+                                if (stopIndex == 1) processStage(3);
+                                else processStage(5);
+                            });
+                        }
+                    } else {
+                        // --- 情況 B: 門沒關好 (被擋住或還在跑) ---
+                        Log.w(TAG, "危險！檢測到門未關閉，觸發自動重試...");
+
+                        if (getActivity() != null) {
+                            getActivity().runOnUiThread(() -> {
+                                // 1. 跳出 Error 警告 (不用按鈕，單純提示)
+                                showRetryDialog();
+
+                                // 2. 再次發送關門指令 (強制重關)
+                                controlElectricDoor(closeCmd);
+
+                                // 3. 再次呼叫自己 (形成迴圈)，再等 5 秒檢查
+                                startDoorCheckLoop(closeCmd, stopIndex);
+                            });
+                        }
+                    }
+                }
+            });
+
+        }, 5000); // 給予 5 秒緩衝時間讓門動作
+    }
+
+    // 顯示一個短暫的 Error 視窗，告訴使用者機器人正在嘗試自我修復
+    private void showRetryDialog() {
+        if (getActivity() == null) return;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("⚠️ 安全警告");
+        builder.setMessage("檢測到艙門未關閉！\n無法移動。\n\n正在嘗試重新關門...");
+        builder.setCancelable(false);
+
+        // 建立一個自動消失的 Dialog
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // 2秒後自動關閉視窗，因為系統會一直在背景重試
+        new Handler(Looper.getMainLooper()).postDelayed(dialog::dismiss, 2000);
+    }
 
     // ==========================================
     // Modbus 蜂鳴器控制核心 (移植區)
@@ -256,13 +333,19 @@ public class MultiDeliveryFragment extends BaseFragment {
     }
 
     private void resetSelection() {
-        stopBuzzerLoop(); // 重設時也要停止響鈴
+        stopBuzzerLoop();
         mDestName1 = null;
         mDestName2 = null;
         mTvDest1.setText("尚未設定");
         mTvDest1.setTextColor(0xFFFFFFFF);
         mTvDest2.setText("尚未設定");
         mTvDest2.setTextColor(0xFFFFFFFF);
+
+        // ★★★ 恢復 UI：把返回按鈕顯示出來
+        showBackView(); // 這是 BaseFragment 提供的方法
+
+        // 確保按鈕可以按
+        setButtonsEnabled(true);
     }
 
     // ==========================================
@@ -270,7 +353,11 @@ public class MultiDeliveryFragment extends BaseFragment {
     // ==========================================
     private void startDeliverySequence() {
         Log.i(TAG, "=== 檢查通過，開始多點配送任務 ===");
+
+        // 1. 鎖定 UI：隱藏返回按鈕，禁用其他按鈕
+        hideBackView(); // ★★★ 這是 BaseFragment 提供的方法，直接隱藏左上角返回鍵
         setButtonsEnabled(false);
+
         processStage(1);
     }
 
@@ -310,6 +397,7 @@ public class MultiDeliveryFragment extends BaseFragment {
 
             case 6: // 結束
                 setButtonsEnabled(true);
+                showBackView();
                 resetSelection();
                 break;
         }
@@ -363,7 +451,8 @@ public class MultiDeliveryFragment extends BaseFragment {
 
     private void performOpenDoorSequence(int stopIndex, String locationName) {
         int openCmd = (stopIndex == 1) ? Definition.CAN_DOOR_DOOR1_DOOR2_OPEN : Definition.CAN_DOOR_DOOR3_DOOR4_OPEN;
-        int closeCmd = (stopIndex == 1) ? Definition.CAN_DOOR_DOOR1_DOOR2_CLOSE : Definition.CAN_DOOR_DOOR3_DOOR4_CLOSE;
+        // 這裡定義好對應的關門指令，等一下重試時會用到
+        final int closeCmd = (stopIndex == 1) ? Definition.CAN_DOOR_DOOR1_DOOR2_CLOSE : Definition.CAN_DOOR_DOOR3_DOOR4_CLOSE;
 
         Log.i(TAG, "密碼驗證通過，開啟艙門...");
         Toast.makeText(getContext(), "密碼正確，正在開門...", Toast.LENGTH_SHORT).show();
@@ -379,12 +468,13 @@ public class MultiDeliveryFragment extends BaseFragment {
 
                 builder.setPositiveButton("已取物，關門", (dialog, which) -> {
                     Toast.makeText(getContext(), "正在關門...", Toast.LENGTH_SHORT).show();
+
+                    // 1. 第一次嘗試關門
                     controlElectricDoor(closeCmd);
 
-                    mHandler.postDelayed(() -> {
-                        if (stopIndex == 1) processStage(3);
-                        else processStage(5);
-                    }, 4000);
+                    // 2. 啟動「自動重試檢查機制」
+                    // 傳入參數：關門指令、目的地索引
+                    startDoorCheckLoop(closeCmd, stopIndex);
                 });
                 builder.show();
             });
