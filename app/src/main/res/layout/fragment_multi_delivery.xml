@@ -43,7 +43,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tv_robot_title"
         app:layout_constraintVertical_weight="1">
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -51,7 +50,6 @@
             android:textColor="#FFD700"
             android:textSize="8sp"
             android:textStyle="bold" />
-
         <TextView
             android:id="@+id/tv_dest_door_1"
             android:layout_width="wrap_content"
@@ -61,7 +59,6 @@
             android:textColor="#FFFFFF"
             android:textSize="13sp"
             android:textStyle="bold" />
-
         <Button
             android:id="@+id/btn_open_door_1"
             android:layout_width="80dp"
@@ -89,7 +86,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/layout_door_1"
         app:layout_constraintVertical_weight="1">
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -97,7 +93,6 @@
             android:textColor="#FFD700"
             android:textSize="8sp"
             android:textStyle="bold" />
-
         <TextView
             android:id="@+id/tv_dest_door_2"
             android:layout_width="wrap_content"
@@ -107,7 +102,6 @@
             android:textColor="#FFFFFF"
             android:textSize="13sp"
             android:textStyle="bold" />
-
         <Button
             android:id="@+id/btn_open_door_2"
             android:layout_width="80dp"
@@ -148,7 +142,7 @@
             android:id="@+id/btn_loc_fan"
             android:layout_width="match_parent"
             android:layout_height="40dp"
-            android:layout_marginBottom="15dp"
+            android:layout_marginBottom="10dp"
             android:background="@drawable/button_rounded"
             android:text="風機"
             android:textColor="#FFFFFF"
@@ -159,11 +153,23 @@
             android:id="@+id/btn_loc_washroom"
             android:layout_width="match_parent"
             android:layout_height="40dp"
-            android:layout_marginBottom="30dp"
+            android:layout_marginBottom="10dp"
             android:background="@drawable/button_rounded"
             android:text="洗手間"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_more_functions"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginBottom="25dp"
+            android:background="@drawable/button_rounded"
+            android:backgroundTint="#607D8B"
+            android:text="⚙️ 更多功能"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <LinearLayout

@@ -31,7 +31,7 @@ import android.os.Handler;
 
 import com.ainirobot.coreservice.client.RobotApi;
 import com.ainirobot.robotos.fragment.FailedFragment;
-import com.ainirobot.robotos.fragment.MainFragment;
+import com.ainirobot.robotos.fragment.MultiDeliveryFragment;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -100,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
         }
         else if(RobotApi.getInstance().isApiConnectedService()
                 && RobotApi.getInstance().isActive()){
-            Fragment fragment = MainFragment.newInstance();
+            Fragment fragment = MultiDeliveryFragment.newInstance();
             switchFragment(fragment);
         }else
         {

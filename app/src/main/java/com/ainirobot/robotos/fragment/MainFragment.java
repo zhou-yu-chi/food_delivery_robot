@@ -61,6 +61,7 @@ public class MainFragment extends BaseFragment {
     private Button mBtnMultiDelivery;
     // Modbus 工人
     private Button mBtnPasswordSetting;
+    private Button mBtnMoreFunctions;
 
     // 用來處理 30秒循環 的計時器
     private Handler mHandler = new Handler(Looper.getMainLooper());
@@ -75,7 +76,7 @@ public class MainFragment extends BaseFragment {
     public View onCreateView(Context context) {
         View root = mInflater.inflate(R.layout.fragment_main_layout, null, false);
         bindViews(root);
-        hideBackView();
+        showBackView();
         hideResultView();
         return root;
     }
@@ -137,8 +138,6 @@ public class MainFragment extends BaseFragment {
                 }
             });
         });
-
-
         // 離開按鈕維持原樣
         mExit.setOnClickListener(v -> {
             mHandler.removeCallbacksAndMessages(null);
@@ -147,6 +146,7 @@ public class MainFragment extends BaseFragment {
                 getActivity().finish();
             }
         });
+
     }
 
     /**
