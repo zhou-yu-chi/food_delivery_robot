@@ -23,14 +23,13 @@ import android.widget.TextView;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.os.Handler;
 
 
 import com.ainirobot.coreservice.client.RobotApi;
 import com.ainirobot.robotos.fragment.FailedFragment;
+import com.ainirobot.robotos.fragment.MainFragment;
 import com.ainirobot.robotos.fragment.MultiDeliveryFragment;
 
 public class MainActivity extends AppCompatActivity {

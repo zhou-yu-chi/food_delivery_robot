@@ -35,7 +35,7 @@ import com.ainirobot.robotos.view.ResultView;
 
 public abstract class BaseFragment extends Fragment {
 
-    private BackView mBv_back;
+    protected BackView mBv_back;
     private ResultView mRv_result;
     private RelativeLayout mRl_content;
 

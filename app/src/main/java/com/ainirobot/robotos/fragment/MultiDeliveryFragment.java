@@ -40,7 +40,7 @@ import android.media.AudioManager;
 public class MultiDeliveryFragment extends BaseFragment {
 
     private static final String TAG = "MultiDeliveryFragment";
-    private String mReturnMessage = null;
+    private java.util.ArrayList<String> mReturnList = new java.util.ArrayList<>();
     private static final String BUZZER_IP_1 = "192.168.162.101";
     private static final String BUZZER_IP_2 = "192.168.162.102";
     private Runnable mCurrentBeepTask = null;
@@ -288,11 +288,37 @@ public class MultiDeliveryFragment extends BaseFragment {
 
             case 6: // 結束
                 setButtonsEnabled(true); // ★★★ 解鎖按鈕 ★★★
-                speak("我回來了，等待下一次任務。");
-                resetSelection();
+                if (!mReturnList.isEmpty()) {
+                    showReturnSummaryDialog();
+                    speak("我回來了，等待下一次任務。");
+                } else {
+                    // 如果沒有退回物品，直接重置
+                    resetSelection();
+                    speak("我回來了，等待下一次任務。");
+                }
                 break;
         }
 
+    }
+    private void showReturnSummaryDialog() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("以下站點有物品未領取，請檢查艙門：\n\n");
+        for (String record : mReturnList) {
+            sb.append("● ").append(record).append("\n");
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("⚠️ 任務結束 - 物品檢查");
+        builder.setMessage(sb.toString());
+        builder.setCancelable(false);
+        builder.setPositiveButton("我知道了", (dialog, which) -> {
+            // 使用者確認後，才重置介面
+            resetSelection();
+
+            // 貼心功能：如果怕使用者忘記開門，這裡可以自動把門全開，或者讓使用者自己按
+            // controlElectricDoor(Definition.CAN_DOOR_ALL_OPEN); // 視需求決定是否要自動開
+        });
+        builder.show();
     }
 
 
@@ -360,37 +386,72 @@ public class MultiDeliveryFragment extends BaseFragment {
         // 2. 呼叫確認視窗 (抽離出來的新方法)
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> {
-                showPickupConfirmationDialog(stopIndex, doorMsg);
+                showPickupConfirmationDialog(stopIndex, doorMsg, locationName);
             });
         }
     }
-    private void showPickupConfirmationDialog(int stopIndex, String currentDoorMsg) {
+    private void executeCloseAndDepart(int stopIndex) {
+        Toast.makeText(getContext(), "正在關門...", Toast.LENGTH_SHORT).show();
+
+        // 無論之前開了幾個門，離開時一律發送「全關」指令
+        int closeAllCmd = Definition.CAN_DOOR_ALL_CLOSE;
+        controlElectricDoor(closeAllCmd);
+
+        // 啟動安全檢查迴圈
+        startDoorCheckLoop(closeAllCmd, stopIndex);
+    }
+    private void showPickupConfirmationDialog(int stopIndex, String currentDoorMsg, String locationName) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         builder.setTitle("艙門已開啟");
-        builder.setMessage(currentDoorMsg + "已開啟。\n\n● 若物品無誤：請取物後點擊【已取物，關門】。\n● 若發現物品位置錯誤：請點擊【物品有誤】。");
+        // 修改提示文字
+        builder.setMessage(currentDoorMsg + "已開啟。\n\n● 若物品無誤：請取物後點擊【已取物，關門】。\n● 若需其他協助：請點擊【其他選項】。");
         builder.setCancelable(false);
 
-        // --- 按鈕 1: 正常流程 (已取物，關門) ---
+        // --- 按鈕 1: 正常流程 ---
         builder.setPositiveButton("已取物，關門", (dialog, which) -> {
-            Toast.makeText(getContext(), "正在關門...", Toast.LENGTH_SHORT).show();
-
-            // ★★★ 修改：為了安全，無論之前開了幾個門，離開時一律發送「全關」指令
-            int closeAllCmd = Definition.CAN_DOOR_ALL_CLOSE;
-            controlElectricDoor(closeAllCmd);
-
-            // 啟動安全檢查迴圈
-            startDoorCheckLoop(closeAllCmd, stopIndex);
+            // 改呼叫剛剛抽離出來的方法
+            executeCloseAndDepart(stopIndex);
         });
 
-        // --- 按鈕 2: 異常處理 (物品有誤) ---
-        builder.setNeutralButton("⚠️ 物品有誤", (dialog, which) -> {
-            // 點擊後，不關門，直接跳出密碼驗證，準備全開
-            showErrorUnlockDialog(stopIndex);
+        // --- 按鈕 2: 改成 "其他選項" ---
+        builder.setNeutralButton("⚙️ 其他選項", (dialog, which) -> {
+            // 點擊後跳出子選單
+            showOtherOptionsDialog(stopIndex, currentDoorMsg, locationName);
         });
 
         builder.show();
     }
-    private void showErrorUnlockDialog(int stopIndex) {
+    private void showOtherOptionsDialog(int stopIndex, String doorMsg, String locationName) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("特殊狀況處理");
+        // 1. 上方加入解釋文字
+        builder.setMessage("請選擇此物品的後續處理方式：\n\n" +
+                "● ⚠️ 物品有誤：\n   輸入管理員密碼，全開艙門開啟。\n\n" +
+                "● ↩️ 送回待機點：\n   將物品送回待機點，記錄後跳回上一頁，請您再按【已取物，關門】繼續行程。");
+        builder.setCancelable(false); // 強制選擇，不能點旁邊關閉
+
+        // 2. 左邊按鈕：物品有誤
+        builder.setNeutralButton("⚠️ 物品有誤", (dialog, which) -> {
+            showErrorUnlockDialog(stopIndex, locationName);
+        });
+
+        // 3. 右邊按鈕：送回待機點 (修改邏輯)
+        builder.setPositiveButton("↩️ 送回待機點", (dialog, which) -> {
+            // (1) 記錄起來
+            String record = "地點：" + locationName + " (" + doorMsg + ")";
+            mReturnList.add(record);
+
+            // (2) 提示使用者
+            Toast.makeText(getContext(), "已記錄「退回」，請點擊【已取物，關門】繼續。", Toast.LENGTH_LONG).show();
+
+            // (3) ★★★ 關鍵修改：跳回原本的確認視窗，而不是直接出發 ★★★
+            showPickupConfirmationDialog(stopIndex, doorMsg, locationName);
+        });
+
+        // 4. 移除原本的 "取消" 按鈕，只留上面兩個選項並排
+        builder.show();
+    }
+    private void showErrorUnlockDialog(int stopIndex, String locationName) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         builder.setTitle("⚠️ 管理員驗證");
         builder.setMessage("您即將開啟所有艙門以檢查物品。\n請輸入密碼：");
@@ -402,10 +463,14 @@ public class MultiDeliveryFragment extends BaseFragment {
         builder.setView(inputPass);
 
         builder.setPositiveButton("驗證並全開", null);
+
+        // --- 這裡就是原本報錯的地方 ---
         builder.setNegativeButton("取消", (dialog, which) -> {
-            // 如果按取消，回到原本的確認視窗 (保持原狀)
+            // 計算門的名稱
             String doorName = (stopIndex == 1) ? "【上艙】" : (stopIndex == 2 ? "【下艙】" : "【上艙】與【下艙】");
-            showPickupConfirmationDialog(stopIndex, doorName);
+
+            // ★★★ 修正：現在這裡傳入 3 個參數了 (原本只有 2 個導致報錯)
+            showPickupConfirmationDialog(stopIndex, doorName, locationName);
         });
 
         AlertDialog dialog = builder.create();
@@ -420,10 +485,11 @@ public class MultiDeliveryFragment extends BaseFragment {
                 Toast.makeText(getContext(), "驗證通過，正在開啟所有艙門...", Toast.LENGTH_SHORT).show();
                 controlElectricDoor(Definition.CAN_DOOR_ALL_OPEN);
 
-                // 2. 顯示更新後的確認視窗 (告訴使用者現在全開了)
+                // 2. 顯示更新後的確認視窗
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
-                        showPickupConfirmationDialog(stopIndex, "【所有艙門】皆");
+                        // 這裡也補上 locationName
+                        showPickupConfirmationDialog(stopIndex, "【所有艙門】", locationName);
                     });
                 }
             } else {
@@ -543,6 +609,7 @@ public class MultiDeliveryFragment extends BaseFragment {
         mTvDest1.setTextColor(0xFFFFFFFF);
         mTvDest2.setText("尚未設定");
         mTvDest2.setTextColor(0xFFFFFFFF);
+        mReturnList.clear();
         setButtonsEnabled(true);
     }
 
